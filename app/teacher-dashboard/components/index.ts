@@ -1,0 +1,11 @@
+export { default as Sidebar } from './Sidebar';
+export { default as CourseCard } from './CourseCard';
+export { default as CreateCourseForm } from './CreateCourseForm';
+export { default as StudentsModal } from './StudentsModal';
+export { default as ResultsModal } from './ResultsModal';
+export { default as ExamModal } from './ExamModal';
+export { default as MaterialsModal } from './MaterialsModal';
+export { default as PreviousExams } from './PreviousExams';
+export { default as SetQuestionsModal } from './SetQuestionsModal';
+export { default as ViewResultsModal } from './ViewResultsModal';
+export { default as ViewQuestionsModal } from './ViewQuestionsModal';
