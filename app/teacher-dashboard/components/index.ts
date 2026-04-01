@@ -9,3 +9,4 @@ export { default as PreviousExams } from './PreviousExams';
 export { default as SetQuestionsModal } from './SetQuestionsModal';
 export { default as ViewResultsModal } from './ViewResultsModal';
 export { default as ViewQuestionsModal } from './ViewQuestionsModal';
+export { default as TeacherPendingRequests } from './TeacherPendingRequests';

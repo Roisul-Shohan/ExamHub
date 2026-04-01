@@ -2,21 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, FileText, Trophy, CheckCircle, AlertCircle, Eye, BarChart, BookOpen, Timer, Play } from 'lucide-react';
-import type { Exam, ExamAttempt } from './type';
-import StudentViewQuestionsModal from "./StudentViewQuestionsModal";
+import type { Exam, ExamAttempt, Question } from './type';
 import StudentViewResultModal from "./StudentViewResultModal";
+import TakeExamModal from "./TakeExamModal";
 
-interface Question {
-  id: number;
-  examId: number;
-  questionText: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  correctOption: string;
-  marks: number;
-}
+
 
 export default function StudentExams() {
   const [exams, setExams] = useState<Exam[]>([]);
@@ -26,6 +16,7 @@ export default function StudentExams() {
   const [activeFilter, setActiveFilter] = useState<'due' | 'taken'>('due');
   const [viewQuestionsExam, setViewQuestionsExam] = useState<{ exam: Exam; attempt?: ExamAttempt } | null>(null);
   const [viewResultExam, setViewResultExam] = useState<{ exam: Exam; attempt: ExamAttempt } | null>(null);
+  const [takeExamExam, setTakeExamExam] = useState<Exam | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,25 +63,103 @@ export default function StudentExams() {
     return examQuestions[examId] && examQuestions[examId].length > 0;
   };
 
-  const isExamAvailable = (startTime: string, endTime: string): boolean => {
+  // Format datetime for display - handles both ISO and MySQL format
+  const formatDateTime = (dateStr: string) => {
+    if (!dateStr) return '';
+    // Replace space with T for parsing
+    const dateStrFixed = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+    const date = new Date(dateStrFixed);
+    // Check if date is valid
+    if (isNaN(date.getTime())) return dateStr;
+    // Format as MM/DD/YYYY
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+  };
+
+  // Format time to 12-hour format with AM/PM
+  const formatTime = (dateStr: string) => {
+    if (!dateStr) return '';
+    // Replace space with T for parsing
+    const dateStrFixed = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+    const date = new Date(dateStrFixed);
+    // Check if date is valid
+    if (isNaN(date.getTime())) return '';
+    // Format as 12-hour time with AM/PM
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  };
+
+  // Calculate end time from start time and duration (to handle incorrect stored endTime)
+  const calculateEndTime = (startTimeStr: string, durationMinutes: number): string => {
+    if (!startTimeStr) return '';
+    // Parse the start time
+    const dateStrFixed = startTimeStr.includes('T') ? startTimeStr : startTimeStr.replace(' ', 'T');
+    const startDate = new Date(dateStrFixed);
+    if (isNaN(startDate.getTime())) return '';
+    
+    // Add duration
+    const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+    
+    // Format as 12-hour time with AM/PM
+    return endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  };
+
+  // Parse datetime string to Date object
+  const parseDateTime = (str: string): Date => {
+    // MySQL returns "YYYY-MM-DD HH:MM:SS" which needs the space replaced with T
+    return new Date(str.includes('T') ? str : str.replace(' ', 'T'));
+  };
+
+  const isExamAvailable = (startTime: string, durationMinutes: number): boolean => {
     const now = new Date();
-    const start = new Date(startTime);
-    const end = new Date(endTime);
+    const start = parseDateTime(startTime);
+    // Calculate end time from start + duration to handle incorrect stored endTime
+    const end = new Date(start.getTime() + durationMinutes * 60000);
     return now >= start && now <= end;
   };
 
-  const dueExams = exams.filter(e => !getAttemptForExam(e.id) && e.status === 'PUBLISHED');
+  // Sort dueExams: available exams first (by end time), then upcoming exams (by start time)
+  const dueExams = exams.filter(e => !getAttemptForExam(e.id) && e.status === 'PUBLISHED')
+    .sort((a, b) => {
+      const now = new Date().getTime();
+      const aStart = parseDateTime(a.startTime).getTime();
+      const aEnd = aStart + a.durationMinutes * 60000;
+      const bStart = parseDateTime(b.startTime).getTime();
+      const bEnd = bStart + b.durationMinutes * 60000;
+      
+      const aIsAvailable = now >= aStart && now <= aEnd;
+      const bIsAvailable = now >= bStart && now <= bEnd;
+      
+      // If both are available, sort by end time (soonest to expire first)
+      if (aIsAvailable && bIsAvailable) {
+        return aEnd - bEnd;
+      }
+      // If only a is available, it comes first
+      if (aIsAvailable) return -1;
+      // If only b is available, it comes first
+      if (bIsAvailable) return 1;
+      // Both are upcoming, sort by start time (soonest first)
+      return aStart - bStart;
+    });
   const takenExams = exams.filter(e => !!getAttemptForExam(e.id));
 
   const getTimeUntilExam = (startTime: string) => {
     const now = new Date();
-    const start = new Date(startTime);
+    const start = parseDateTime(startTime);
     const diff = start.getTime() - now.getTime();
     if (diff <= 0) return 'Available now';
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     if (days > 0) return `${days}d ${hours}h remaining`;
-    return `${hours}h remaining`;
+    if (hours > 0) return `${hours}h ${minutes}m remaining`;
+    return `${minutes}m remaining`;
+  };
+
+  const refreshAttempts = async () => {
+    const attemptsRes = await fetch('/api/student/examAttempts');
+    if (attemptsRes.ok) setExamAttempts(await attemptsRes.json());
   };
 
   if (loading) {
@@ -150,87 +219,94 @@ export default function StudentExams() {
                 <p className="text-slate-500 text-sm">No pending exams at the moment</p>
               </div>
             ) : (
-              dueExams.map((exam) => (
-                <div
-                  key={exam.id}
-                  className="group bg-gradient-to-r from-white/[0.06] to-white/[0.02] backdrop-blur-xl rounded-2xl border border-white/10 hover:border-indigo-500/40 p-6 transition-all duration-500 hover:shadow-xl hover:shadow-indigo-500/10"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
-                          <FileText className="w-5 h-5 text-indigo-400" />
+              dueExams.map((exam) => {
+                const isAvailable = isExamAvailable(exam.startTime, exam.durationMinutes);
+                return (
+                  <div
+                    key={exam.id}
+                    className={`group bg-gradient-to-r from-white/[0.06] to-white/[0.02] backdrop-blur-xl rounded-2xl border p-6 transition-all duration-500 hover:shadow-xl ${
+                      isAvailable 
+                        ? 'border-emerald-500/40 hover:border-emerald-500/60 shadow-lg shadow-emerald-500/10'
+                        : 'border-white/10 hover:border-indigo-500/40 hover:shadow-indigo-500/10'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
+                            <FileText className="w-5 h-5 text-indigo-400" />
+                          </div>
+                          <div>
+                            <h3 className="text-slate-100 font-bold text-lg">{exam.title}</h3>
+                            <p className="text-slate-500 text-xs flex items-center gap-1.5">
+                              <BookOpen className="w-3 h-3" />
+                              {exam.courseCode} · {exam.courseName}
+                            </p>
+                          </div>
+                          {isAvailable && (
+                            <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/30">
+                              Available Now
+                            </span>
+                          )}
                         </div>
-                        <div>
-                          <h3 className="text-slate-100 font-bold text-lg">{exam.title}</h3>
-                          <p className="text-slate-500 text-xs flex items-center gap-1.5">
-                            <BookOpen className="w-3 h-3" />
-                            {exam.courseCode} · {exam.courseName}
-                          </p>
+
+                        {exam.description && (
+                          <p className="text-slate-400 text-sm ml-[52px] mb-4">{exam.description}</p>
+                        )}
+
+                        <div className="flex items-center gap-4 ml-[52px] flex-wrap">
+                          <div className="flex items-center gap-1.5 text-sm text-slate-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.06]">
+                            <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                            {formatDateTime(exam.startTime)}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-sm text-slate-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.06]">
+                            <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                            {formatTime(exam.startTime)} - {calculateEndTime(exam.startTime, exam.durationMinutes)}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-sm text-slate-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.06]">
+                            <Timer className="w-3.5 h-3.5 text-violet-400" />
+                            {exam.durationMinutes} min
+                          </div>
+                          <div className="flex items-center gap-1.5 text-sm text-slate-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.06]">
+                            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                            {exam.totalMarks} marks
+                          </div>
+                          {exam.negativeMark > 0 && (
+                            <div className="flex items-center gap-1.5 text-sm text-rose-300 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20">
+                              -{exam.negativeMark} negative
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      {exam.description && (
-                        <p className="text-slate-400 text-sm ml-[52px] mb-4">{exam.description}</p>
-                      )}
-
-                      <div className="flex items-center gap-4 ml-[52px] flex-wrap">
-                        <div className="flex items-center gap-1.5 text-sm text-slate-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.06]">
-                          <Calendar className="w-3.5 h-3.5 text-blue-400" />
-                          {exam.examDate}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-sm text-slate-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.06]">
-                          <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                          {exam.startTime.split(' ')[1]} - {exam.endTime.split(' ')[1]}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-sm text-slate-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.06]">
-                          <Timer className="w-3.5 h-3.5 text-violet-400" />
-                          {exam.durationMinutes} min
-                        </div>
-                        <div className="flex items-center gap-1.5 text-sm text-slate-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.06]">
-                          <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                          {exam.totalMarks} marks
-                        </div>
-                        {exam.negativeMark > 0 && (
-                          <div className="flex items-center gap-1.5 text-sm text-rose-300 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20">
-                            -{exam.negativeMark} negative
+                      {/* Actions */}
+                      <div className="flex flex-col gap-2">
+                        {/* Only show Take Exam button if exam is currently available (within time window) */}
+                        {isExamAvailable(exam.startTime, exam.durationMinutes) ? (
+                          hasQuestions(exam.id) ? (
+                            <button
+                              onClick={() => setTakeExamExam(exam)}
+                              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white rounded-xl text-sm font-semibold transition-all duration-300 shadow-lg shadow-indigo-500/20"
+                            >
+                              <Play className="w-4 h-4" />
+                              Take Exam
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-500/10 border border-slate-500/20 text-slate-400 rounded-xl text-sm font-semibold cursor-not-allowed">
+                              No Questions
+                            </div>
+                          )
+                        ) : (
+                          <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-500/10 border border-slate-500/20 text-slate-400 rounded-xl text-sm font-semibold cursor-not-allowed">
+                            <Clock className="w-4 h-4" />
+                            {getTimeUntilExam(exam.startTime)}
                           </div>
                         )}
                       </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex flex-col gap-2">
-                      {isExamAvailable(exam.startTime, exam.endTime) ? (
-                        <button
-                          onClick={() => {
-                            // TODO: Implement start exam functionality
-                            alert('Start Exam functionality coming soon!');
-                          }}
-                          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white rounded-xl text-sm font-semibold transition-all duration-300 shadow-lg shadow-indigo-500/20"
-                        >
-                          <Play className="w-4 h-4" />
-                          Start Exam
-                        </button>
-                      ) : (
-                        <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-500/10 border border-slate-500/20 text-slate-400 rounded-xl text-sm font-semibold cursor-not-allowed">
-                          <Clock className="w-4 h-4" />
-                          {getTimeUntilExam(exam.startTime)}
-                        </div>
-                      )}
-                      {hasQuestions(exam.id) && (
-                        <button
-                          onClick={() => setViewQuestionsExam({ exam, attempt: undefined })}
-                          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-xl text-sm font-semibold transition-all duration-300"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Preview Questions
-                        </button>
-                      )}
-                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -302,7 +378,7 @@ export default function StudentExams() {
                         <div className="flex items-center gap-4 ml-[52px] flex-wrap">
                           <div className="flex items-center gap-1.5 text-sm text-slate-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.06]">
                             <Calendar className="w-3.5 h-3.5 text-blue-400" />
-                            {exam.examDate}
+                            {formatDateTime(exam.startTime)}
                           </div>
                           <div className="flex items-center gap-1.5 text-sm text-slate-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.06]">
                             <Clock className="w-3.5 h-3.5 text-cyan-400" />
@@ -320,28 +396,16 @@ export default function StudentExams() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex flex-col gap-2">
-                        {examHasQuestions ? (
-                          <button
-                            onClick={() => setViewQuestionsExam({ exam, attempt })}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-xl text-sm font-semibold transition-all duration-300"
-                          >
-                            <Eye className="w-4 h-4" />
-                            Questions
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-500/10 border border-slate-500/20 text-slate-400 rounded-xl text-sm font-semibold cursor-not-allowed">
-                            <Eye className="w-4 h-4" />
-                            No Questions
-                          </div>
-                        )}
+                      <div className="flex flex-col gap-2 mt-26">
+                        
                         <button
                           onClick={() => setViewResultExam({ exam, attempt })}
-                          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-xl text-sm font-semibold transition-all duration-300"
+                          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-900 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-xl text-sm font-semibold transition-all duration-300"
                         >
                           <BarChart className="w-4 h-4" />
                           Result
                         </button>
+
                       </div>
                     </div>
                   </div>
@@ -353,19 +417,22 @@ export default function StudentExams() {
       </div>
 
       {/* Modals */}
-      {viewQuestionsExam && (
-        <StudentViewQuestionsModal
-          exam={viewQuestionsExam.exam}
-          attempt={viewQuestionsExam.attempt}
-          onClose={() => setViewQuestionsExam(null)}
-        />
-      )}
+      
 
       {viewResultExam && (
         <StudentViewResultModal
           exam={viewResultExam.exam}
           attempt={viewResultExam.attempt}
           onClose={() => setViewResultExam(null)}
+        />
+      )}
+
+      {takeExamExam && examQuestions[takeExamExam.id] && (
+        <TakeExamModal
+          exam={takeExamExam}
+          questions={examQuestions[takeExamExam.id]}
+          onClose={() => { setTakeExamExam(null); refreshAttempts(); }}
+          onDone={refreshAttempts}
         />
       )}
     </>

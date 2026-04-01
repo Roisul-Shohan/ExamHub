@@ -17,32 +17,37 @@ export default function StudentDashboardPage() {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      if (!studentId) return;
+      
       try {
         // Fetch pending count
         const pendingRes = await fetch('/api/student/pendingRequests');
         if (pendingRes.ok) {
           const pendingData = await pendingRes.json();
-          setPendingCount(pendingData.length);
+          setPendingCount(pendingData.length || 0);
         }
 
         // Fetch enrolled courses count
         const coursesRes = await fetch('/api/student/myCourses');
         if (coursesRes.ok) {
           const coursesData = await coursesRes.json();
-          setTotalEnrolled(coursesData.length);
+          setTotalEnrolled(Array.isArray(coursesData) ? coursesData.length : 0);
         }
 
         // Fetch exam attempts for stats
         const attemptsRes = await fetch('/api/student/examAttempts');
         if (attemptsRes.ok) {
           const attemptsData: ExamAttempt[] = await attemptsRes.json();
-          setTotalExamsTaken(attemptsData.length);
+          setTotalExamsTaken(Array.isArray(attemptsData) ? attemptsData.length : 0);
           
           if (attemptsData.length > 0) {
             const totalPercent = attemptsData.reduce((sum, a) => {
-              return sum + (a.score / a.totalMarks) * 100;
+              const totalMarks = a.totalMarks || 1;
+              return sum + (a.score / totalMarks) * 100;
             }, 0);
             setAvgScore((totalPercent / attemptsData.length).toFixed(1));
+          } else {
+            setAvgScore('0');
           }
         }
       } catch (err) {
@@ -51,7 +56,7 @@ export default function StudentDashboardPage() {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [studentId]);
 
   const updatePendingCount = (change: number) => {
     setPendingCount(prev => Math.max(0, prev + change));

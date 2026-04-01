@@ -65,7 +65,11 @@ export async function GET() {
 
   try {
     const [rows] = await db.query(
-      "SELECT id, name, code, description, createdat FROM courses WHERE teacherId = ? ORDER BY createdat DESC",
+      `SELECT c.id, c.name, c.code, c.description, c.createdat, 
+              (SELECT COUNT(*) FROM course_enrollments WHERE courseId = c.id AND status = 'APPROVED') as students
+       FROM courses c 
+       WHERE c.teacherId = ? 
+       ORDER BY c.createdat DESC`,
       [session.user.id]
     );
     return NextResponse.json(rows);

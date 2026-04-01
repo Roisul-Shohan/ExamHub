@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Users, BarChart, FileText, Eye, Trophy, Search } from 'lucide-react';
 import type { Course, Exam, ExamAttempt } from './type';
-import StudentViewQuestionsModal from "./StudentViewQuestionsModal";
+
 import StudentViewResultModal from "./StudentViewResultModal";
 import StudentViewExamsModal from "./StudentViewExamsModal";
+import StudentMaterialsModal from "./StudentMaterialsModal";
 
 
 
@@ -16,6 +17,7 @@ export default function MyCourses() {
   const [loading, setLoading] = useState(true);
   const [expandedCourse, setExpandedCourse] = useState<number | null>(null);
   const [showExamsModal, setShowExamsModal] = useState<{ courseId: number; courseName: string } | null>(null);
+  const [showMaterialsModal, setShowMaterialsModal] = useState<{ courseId: number; courseName: string } | null>(null);
   const [viewQuestionsExam, setViewQuestionsExam] = useState<{ exam: Exam; attempt?: ExamAttempt } | null>(null);
   const [viewResultExam, setViewResultExam] = useState<{ exam: Exam; attempt: ExamAttempt } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,7 +72,8 @@ export default function MyCourses() {
     if (takenExams.length === 0) return null;
     const totalPercent = takenExams.reduce((sum, e) => {
       const attempt = getAttemptForExam(e.id)!;
-      return sum + (attempt.score / attempt.totalMarks) * 100;
+      const totalMarks = attempt.totalMarks || 1; // Avoid division by zero
+      return sum + (attempt.score / totalMarks) * 100;
     }, 0);
     return (totalPercent / takenExams.length).toFixed(1);
   };
@@ -170,19 +173,11 @@ export default function MyCourses() {
                     View Exams
                   </button>
                   <button
-                    onClick={() => {
-                      const courseExams = getCourseExams(course.id);
-                      const taken = courseExams.filter(e => getAttemptForExam(e.id));
-                      if (taken.length > 0) {
-                        const exam = taken[0];
-                        const attempt = getAttemptForExam(exam.id)!;
-                        setViewResultExam({ exam, attempt });
-                      }
-                    }}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/[0.03] hover:bg-indigo-500/10 border border-white/[0.05] hover:border-indigo-500/30 text-slate-400 hover:text-indigo-300 rounded-xl transition-all duration-300 text-sm font-medium group/btn backdrop-blur-sm"
+                    onClick={() => setShowMaterialsModal({ courseId: course.id, courseName: course.name })}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/[0.03] hover:bg-amber-500/10 border border-white/[0.05] hover:border-amber-500/30 text-slate-400 hover:text-amber-300 rounded-xl transition-all duration-300 text-sm font-medium group/btn backdrop-blur-sm"
                   >
-                    <BarChart className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
-                    View Results
+                    <BookOpen className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
+                    Materials
                   </button>
                 </div>
               </div>
@@ -204,16 +199,22 @@ export default function MyCourses() {
             setShowExamsModal(null);
             setViewQuestionsExam({ exam, attempt: attempt });
           }}
+          onViewResults={(exam, attempt) => {
+            setShowExamsModal(null);
+            setViewResultExam({ exam, attempt });
+          }}
         />
       )}
 
-      {viewQuestionsExam && (
-        <StudentViewQuestionsModal
-          exam={viewQuestionsExam.exam}
-          attempt={viewQuestionsExam.attempt}
-          onClose={() => setViewQuestionsExam(null)}
+      {showMaterialsModal && (
+        <StudentMaterialsModal
+          courseId={showMaterialsModal.courseId}
+          courseName={showMaterialsModal.courseName}
+          onClose={() => setShowMaterialsModal(null)}
         />
       )}
+
+      
 
       {viewResultExam && (
         <StudentViewResultModal

@@ -60,10 +60,11 @@ export interface ExamAttempt {
 export interface StudentViewExamsModalProps {
   courseId: number;
   courseName: string;
-  exams: Exam[];
-  examAttempts: ExamAttempt[];
+  exams?: Exam[];
+  examAttempts?: ExamAttempt[];
   onClose: () => void;
   onViewQuestions?: (exam: Exam, attempt: ExamAttempt | undefined) => void;
+  onViewResults?: (exam: Exam, attempt: ExamAttempt) => void;
 }
 
 export interface StudentViewQuestionsModalProps {

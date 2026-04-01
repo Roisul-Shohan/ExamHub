@@ -1,31 +1,68 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Clock, Calendar, FileText } from 'lucide-react';
+import { X, Clock, Calendar, FileText, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface ExamModalProps {
-  courseId: number;
-  courseName: string;
-  onClose: () => void;
+interface Exam {
+  id: number;
+  courseId?: number;
+  title: string;
+  description?: string;
+  examDate: string;
+  startTime: string;
+  endTime: string;
+  totalMarks: number;
+  durationMinutes: number;
+  negativeMark?: number;
+  status: 'DRAFT' | 'PUBLISHED' | 'CLOSED';
 }
 
-const initialExamData = {
-  title: '',
-  description: '',
-  examDate: '',
-  startTime: '',
-  totalMarks: 100,
-  durationMinutes: 60,
-  negativeMark: 0,
-  status: 'DRAFT' as 'DRAFT' | 'PUBLISHED' | 'CLOSED',
-};
+interface EditExamModalProps {
+  exam: Exam;
+  courseId: number;
+  onClose: () => void;
+  onSave: (updatedExam: Exam) => void;
+}
 
-export default function ExamModal({ courseId, courseName, onClose }: ExamModalProps) {
-  const [examData, setExamData] = useState({ ...initialExamData });
+export default function EditExamModal({ exam, courseId, onClose, onSave }: EditExamModalProps) {
+  // Helper to extract date part from datetime string (handles ISO and MySQL space format)
+  const extractDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    if (dateStr.includes('T')) return dateStr.split('T')[0];
+    if (dateStr.includes(' ')) return dateStr.split(' ')[0];
+    return dateStr;
+  };
+
+  // Helper to extract time from datetime string (handles ISO and MySQL space format)
+  const extractTime = (dateTimeStr: string) => {
+    if (!dateTimeStr) return '';
+    if (dateTimeStr.includes('T')) {
+      const timePart = dateTimeStr.split('T')[1];
+      return timePart.substring(0, 5);
+    }
+    const parts = dateTimeStr.split(' ');
+    if (parts.length >= 2) {
+      return parts[1].substring(0, 5);
+    }
+    return '';
+  };
+
+  // Initialize form with exam data directly using lazy state
+  const [examData, setExamData] = useState(() => ({
+    title: exam?.title || '',
+    description: exam?.description || '',
+    examDate: exam?.examDate ? extractDate(exam.examDate) : '',
+    startTime: exam?.startTime ? extractTime(exam.startTime) : '',
+    durationMinutes: exam?.durationMinutes || 60,
+    totalMarks: exam?.totalMarks || 100,
+    negativeMark: exam?.negativeMark || 0,
+    status: exam?.status || 'DRAFT',
+  }));
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleCreateExam = async () => {
+  const handleSave = async () => {
     if (!examData.title || !examData.examDate || !examData.startTime) {
       toast.error('Please fill in all required fields');
       return;
@@ -35,6 +72,7 @@ export default function ExamModal({ courseId, courseName, onClose }: ExamModalPr
 
     try {
       // Calculate startTime and endTime in DATETIME format
+      // Combine date and time (using local time, not UTC)
       const startTime = `${examData.examDate} ${examData.startTime}:00`;
       
       // Calculate endTime: startTime + durationMinutes (using local time, not UTC)
@@ -48,7 +86,7 @@ export default function ExamModal({ courseId, courseName, onClose }: ExamModalPr
       const endTime = `${examData.examDate} ${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}:00`;
 
       const examPayload = {
-        courseId,
+        examId: exam.id,
         title: examData.title,
         description: examData.description,
         examDate: examData.examDate,
@@ -60,11 +98,8 @@ export default function ExamModal({ courseId, courseName, onClose }: ExamModalPr
         status: examData.status,
       };
 
-      console.log('Creating exam:', examPayload);
-
-      // Call the actual API
-      const response = await fetch('/api/teacher/exams', {
-        method: 'POST',
+      const response = await fetch(`/api/teacher/exams/${courseId}`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -74,33 +109,36 @@ export default function ExamModal({ courseId, courseName, onClose }: ExamModalPr
       const data = await response.json();
 
       if (response.ok) {
-        toast.success('Exam created successfully!');
-        // Reset form
-        setExamData({ ...initialExamData });
+        toast.success('Exam updated successfully!');
+        onSave({
+          ...exam,
+          ...examPayload,
+          examDate: examData.examDate,
+        });
         onClose();
       } else {
-        toast.error(data.error || 'Failed to create exam');
+        toast.error(data.error || 'Failed to update exam');
       }
     } catch (error) {
-      console.error('Create exam error:', error);
-      toast.error('Failed to create exam. Please try again.');
+      console.error('Update exam error:', error);
+      toast.error('Failed to update exam. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
       <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl w-full max-w-2xl animate-in fade-in zoom-in duration-300 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-slate-800 sticky top-0 bg-slate-900/90 backdrop-blur-xl z-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
               <FileText className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-100">Create New Exam</h2>
-              <p className="text-slate-400 text-sm">{courseName}</p>
+              <h2 className="text-xl font-bold text-slate-100">Edit Exam</h2>
+              <p className="text-slate-400 text-sm">{exam.title}</p>
             </div>
           </div>
           <button
@@ -213,6 +251,7 @@ export default function ExamModal({ courseId, courseName, onClose }: ExamModalPr
                 onChange={(e) => setExamData({ ...examData, status: e.target.value as 'DRAFT' | 'PUBLISHED' | 'CLOSED' })}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all duration-300"
               >
+                <option value="">Select Status</option>
                 <option value="DRAFT">Draft</option>
                 <option value="PUBLISHED">Published</option>
                 <option value="CLOSED">Closed</option>
@@ -224,13 +263,20 @@ export default function ExamModal({ courseId, courseName, onClose }: ExamModalPr
         {/* Footer */}
         <div className="flex gap-3 p-6 border-t border-slate-800 sticky bottom-0 bg-slate-900/90 backdrop-blur-xl">
           <button
-            onClick={handleCreateExam}
+            onClick={handleSave}
             disabled={isSubmitting}
-            className={`flex-1 cursor-pointer bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transform hover:-translate-y-0.5 ${
+            className={`flex-1 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 flex items-center justify-center gap-2 ${
               isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
-            {isSubmitting ? 'Creating...' : 'Create Exam'}
+            {isSubmitting ? (
+              'Saving...'
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Save Changes
+              </>
+            )}
           </button>
           <button
             onClick={onClose}

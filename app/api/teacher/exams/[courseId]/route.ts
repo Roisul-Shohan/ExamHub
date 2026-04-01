@@ -64,36 +64,103 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ co
     }
 
     const body = await req.json();
-    const { examId, status } = body;
+    const { examId, status, title, description, examDate, startTime, endTime, totalMarks, durationMinutes, negativeMark } = body;
 
-    if (!examId || !status) {
-      return NextResponse.json({ error: "examId and status are required" }, { status: 400 });
+    // If only status is being updated
+    if (examId && status && !title) {
+      if (!['DRAFT', 'PUBLISHED', 'CLOSED'].includes(status)) {
+        return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+      }
+
+      // Verify exam belongs to this course
+      const [exam] = await db.execute(
+        "SELECT id FROM exams WHERE id = ? AND courseId = ?",
+        [examId, courseId]
+      );
+
+      if (!(exam as any[]).length) {
+        return NextResponse.json({ error: "Exam not found in this course" }, { status: 404 });
+      }
+
+      // Update exam status
+      await db.execute(
+        "UPDATE exams SET status = ? WHERE id = ?",
+        [status, examId]
+      );
+
+      return NextResponse.json({ message: "Exam status updated successfully" });
     }
 
-    // Validate status
-    if (!['DRAFT', 'PUBLISHED', 'CLOSED'].includes(status)) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    // Full exam update
+    if (examId && title) {
+      // Verify exam belongs to this course
+      const [exam] = await db.execute(
+        "SELECT id FROM exams WHERE id = ? AND courseId = ?",
+        [examId, courseId]
+      );
+
+      if (!(exam as any[]).length) {
+        return NextResponse.json({ error: "Exam not found in this course" }, { status: 404 });
+      }
+
+      // Build update query
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+
+      if (title) {
+        updateFields.push("title = ?");
+        updateValues.push(title);
+      }
+      if (description !== undefined) {
+        updateFields.push("description = ?");
+        updateValues.push(description);
+      }
+      if (examDate) {
+        updateFields.push("examDate = ?");
+        updateValues.push(examDate);
+      }
+      if (startTime) {
+        updateFields.push("startTime = ?");
+        updateValues.push(startTime);
+      }
+      if (endTime) {
+        updateFields.push("endTime = ?");
+        updateValues.push(endTime);
+      }
+      if (totalMarks) {
+        updateFields.push("totalMarks = ?");
+        updateValues.push(totalMarks);
+      }
+      if (durationMinutes) {
+        updateFields.push("durationMinutes = ?");
+        updateValues.push(durationMinutes);
+      }
+      if (negativeMark !== undefined) {
+        updateFields.push("negativeMark = ?");
+        updateValues.push(negativeMark);
+      }
+      if (status) {
+        if (!['DRAFT', 'PUBLISHED', 'CLOSED'].includes(status)) {
+          return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+        }
+        updateFields.push("status = ?");
+        updateValues.push(status);
+      }
+
+      if (updateFields.length > 0) {
+        updateValues.push(examId);
+        await db.execute(
+          `UPDATE exams SET ${updateFields.join(', ')} WHERE id = ?`,
+          updateValues
+        );
+      }
+
+      return NextResponse.json({ message: "Exam updated successfully" });
     }
 
-    // Verify exam belongs to this course
-    const [exam] = await db.execute(
-      "SELECT id FROM exams WHERE id = ? AND courseId = ?",
-      [examId, courseId]
-    );
-
-    if (!(exam as any[]).length) {
-      return NextResponse.json({ error: "Exam not found in this course" }, { status: 404 });
-    }
-
-    // Update exam status
-    await db.execute(
-      "UPDATE exams SET status = ? WHERE id = ?",
-      [status, examId]
-    );
-
-    return NextResponse.json({ message: "Exam status updated successfully" });
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   } catch (error) {
-    console.error("Update exam status error:", error);
+    console.error("Update exam error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

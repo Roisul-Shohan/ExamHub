@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { BookOpen, PlusCircle, User, GraduationCap } from 'lucide-react';
+import { BookOpen, PlusCircle, User, GraduationCap, ClipboardList } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -11,6 +11,7 @@ interface SidebarProps {
 const menuItems = [
   { id: 'my-courses', icon: BookOpen, label: 'My Courses' },
   { id: 'create-course', icon: PlusCircle, label: 'Create Courses' },
+  { id: 'pending-requests', icon: ClipboardList, label: 'Pending Requests' },
 ];
 
 export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {

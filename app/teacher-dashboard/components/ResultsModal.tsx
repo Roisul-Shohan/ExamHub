@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { X, BarChart, Trophy } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, BarChart, Trophy, Loader2 } from 'lucide-react';
 
 interface ResultsModalProps {
   courseId: number;
@@ -9,28 +9,76 @@ interface ResultsModalProps {
   onClose: () => void;
 }
 
-const dummyResults = [
-  { studentId: 1, name: 'Alice Brown', midTerm: 85, final: 92, assignments: 88, total: 88.3 },
-  { studentId: 2, name: 'Bob Smith', midTerm: 72, final: 78, assignments: 80, total: 76.7 },
-  { studentId: 3, name: 'Charlie Davis', midTerm: 90, final: 95, assignments: 92, total: 92.3 },
-  { studentId: 4, name: 'Diana Miller', midTerm: 68, final: 74, assignments: 70, total: 70.7 },
-  { studentId: 5, name: 'Ethan Wilson', midTerm: 78, final: 82, assignments: 85, total: 81.7 },
-];
+interface ExamResult {
+  attemptId: number;
+  examId: number;
+  studentId: number;
+  studentName: string;
+  examTitle: string;
+  score: number;
+  examTotalMarks: number;
+  status: string;
+}
 
-export default function ResultsModal({ courseName, onClose }: ResultsModalProps) {
-  const getGradeColor = (score: number) => {
-    if (score >= 80) return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-    if (score >= 60) return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+export default function ResultsModal({ courseId, courseName, onClose }: ResultsModalProps) {
+  const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<ExamResult[]>([]);
+  const [exams, setExams] = useState<{id: number; title: string; totalMarks: number}[]>([]);
+  const [selectedExam, setSelectedExam] = useState<number | 'all'>('all');
+
+  useEffect(() => {
+    const fetchResults = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/teacher/examResults/${courseId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setResults(data.attempts || []);
+          setExams(data.exams || []);
+        }
+      } catch (err) {
+        console.error('Error fetching results:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResults();
+  }, [courseId]);
+
+  const filteredResults = selectedExam === 'all' 
+    ? results 
+    : results.filter(r => r.examId === selectedExam);
+
+  const getGradeColor = (percentage: number) => {
+    if (percentage >= 80) return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+    if (percentage >= 60) return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
     return 'bg-red-500/10 text-red-400 border border-red-500/20';
   };
 
-  const getGradeBadge = (total: number) => {
-    if (total >= 90) return { color: 'from-yellow-400 to-yellow-600', text: 'A' };
-    if (total >= 80) return { color: 'from-emerald-400 to-emerald-600', text: 'B' };
-    if (total >= 70) return { color: 'from-blue-400 to-blue-600', text: 'C' };
-    if (total >= 60) return { color: 'from-orange-400 to-orange-600', text: 'D' };
+  const getGradeBadge = (percentage: number) => {
+    if (percentage >= 90) return { color: 'from-yellow-400 to-yellow-600', text: 'A' };
+    if (percentage >= 80) return { color: 'from-emerald-400 to-emerald-600', text: 'B' };
+    if (percentage >= 70) return { color: 'from-blue-400 to-blue-600', text: 'C' };
+    if (percentage >= 60) return { color: 'from-orange-400 to-orange-600', text: 'D' };
     return { color: 'from-red-400 to-red-600', text: 'F' };
   };
+
+  const calculatePercentage = (score: number, totalMarks: number) => {
+    return totalMarks > 0 ? (score / totalMarks) * 100 : 0;
+  };
+
+  const topScorer = filteredResults.length > 0 
+    ? filteredResults.reduce((top, current) => {
+        const topPct = calculatePercentage(top.score, top.examTotalMarks);
+        const currentPct = calculatePercentage(current.score, current.examTotalMarks);
+        return currentPct > topPct ? current : top;
+      })
+    : null;
+
+  const classAverage = filteredResults.length > 0
+    ? filteredResults.reduce((sum, r) => sum + calculatePercentage(r.score, r.examTotalMarks), 0) / filteredResults.length
+    : 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -54,72 +102,86 @@ export default function ResultsModal({ courseName, onClose }: ResultsModalProps)
           </button>
         </div>
 
+        {/* Exam Filter */}
+        {exams.length > 1 && (
+          <div className="px-6 py-3 border-b border-slate-800">
+            <select
+              value={selectedExam}
+              onChange={(e) => setSelectedExam(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+              className="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+            >
+              <option value="all">All Exams</option>
+              {exams.map(exam => (
+                <option key={exam.id} value={exam.id}>{exam.title}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Results Table */}
         <div className="p-4 overflow-y-auto max-h-[50vh]">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-slate-400 text-sm border-b border-slate-800">
-                <th className="pb-4 font-medium pl-4">Student</th>
-                <th className="pb-4 font-medium text-center">Mid Term</th>
-                <th className="pb-4 font-medium text-center">Final</th>
-                <th className="pb-4 font-medium text-center">Assignments</th>
-                <th className="pb-4 font-medium text-center">Total</th>
-                <th className="pb-4 font-medium text-center">Grade</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dummyResults.map((result) => {
-                const badge = getGradeBadge(result.total);
-                return (
-                  <tr
-                    key={result.studentId}
-                    className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors"
-                  >
-                    <td className="py-4 pl-4 text-slate-200 font-medium">{result.name}</td>
-                    <td className="py-4 text-center">
-                      <span className={`px-2 py-1 rounded text-sm ${getGradeColor(result.midTerm)}`}>
-                        {result.midTerm}%
-                      </span>
-                    </td>
-                    <td className="py-4 text-center">
-                      <span className={`px-2 py-1 rounded text-sm ${getGradeColor(result.final)}`}>
-                        {result.final}%
-                      </span>
-                    </td>
-                    <td className="py-4 text-center">
-                      <span className={`px-2 py-1 rounded text-sm ${getGradeColor(result.assignments)}`}>
-                        {result.assignments}%
-                      </span>
-                    </td>
-                    <td className="py-4 text-center">
-                      <span className={`px-3 py-1 rounded-lg text-sm font-bold ${getGradeColor(result.total)}`}>
-                        {result.total.toFixed(1)}%
-                      </span>
-                    </td>
-                    <td className="py-4 text-center">
-                      <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br ${badge.color} text-white font-bold text-sm shadow-lg`}>
-                        {badge.text}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+            </div>
+          ) : filteredResults.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              <Trophy className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>No results found</p>
+              <p className="text-sm mt-1">Students haven't taken any exams yet</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-slate-400 text-sm border-b border-slate-800">
+                  <th className="pb-4 font-medium pl-4">Student</th>
+                  <th className="pb-4 font-medium text-center">Exam</th>
+                  <th className="pb-4 font-medium text-center">Score</th>
+                  <th className="pb-4 font-medium text-center">Percentage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredResults.map((result) => {
+                  const percentage = calculatePercentage(result.score, result.examTotalMarks);
+                  return (
+                    <tr
+                      key={result.attemptId}
+                      className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors"
+                    >
+                      <td className="py-4 pl-4 text-slate-200 font-medium">{result.studentName}</td>
+                      <td className="py-4 text-center text-slate-400 text-sm">{result.examTitle}</td>
+                      <td className="py-4 text-center">
+                        <span className={`px-2 py-1 rounded text-sm ${getGradeColor(percentage)}`}>
+                          {result.score}/{result.examTotalMarks}
+                        </span>
+                      </td>
+                      <td className="py-4 text-center">
+                        <span className={`px-3 py-1 rounded-lg text-sm font-bold ${getGradeColor(percentage)}`}>
+                          {percentage.toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-purple-100">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Trophy className="w-4 h-4" />
-              <span>Top Scorer: {dummyResults.sort((a, b) => b.total - a.total)[0].name}</span>
-            </div>
-            <div className="text-sm text-gray-500">
-              Class Average: <span className="text-gray-800 font-semibold">{((dummyResults.reduce((acc, r) => acc + r.total, 0) / dummyResults.length)).toFixed(1)}%</span>
+        {!loading && filteredResults.length > 0 && (
+          <div className="p-4 border-t border-slate-800">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <Trophy className="w-4 h-4" />
+                <span>Top Scorer: {topScorer?.studentName || 'N/A'}</span>
+              </div>
+              <div className="text-sm text-slate-400">
+                Class Average: <span className="text-indigo-400 font-semibold">{classAverage.toFixed(1)}%</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

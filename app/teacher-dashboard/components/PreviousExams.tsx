@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import SetQuestionsModal from './SetQuestionsModal';
 import ViewResultsModal from './ViewResultsModal';
 import ViewQuestionsModal from './ViewQuestionsModal';
+import EditExamModal from './EditExamModal';
 
 interface Exam {
   id: number;
@@ -42,6 +43,7 @@ export default function PreviousExams({
   const [showViewResults, setShowViewResults] = useState<{ examId: number; examTitle: string } | null>(null);
   const [showViewQuestions, setShowViewQuestions] = useState<{ examId: number; examTitle: string } | null>(null);
   const [examQuestionCounts, setExamQuestionCounts] = useState<Record<number, number>>({});
+  const [editExam, setEditExam] = useState<Exam | null>(null);
 
   useEffect(() => {
     // Fetch exams from API
@@ -144,11 +146,39 @@ export default function PreviousExams({
     );
   };
 
+  // Format datetime for display - handles both ISO and MySQL format
+  const formatDateTime = (dateStr: string) => {
+    if (!dateStr) return '';
+    // Replace space with T for parsing
+    const dateStrFixed = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+    const date = new Date(dateStrFixed);
+    // Check if date is valid
+    if (isNaN(date.getTime())) return dateStr;
+    // Format as MM/DD/YYYY
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+  };
+
+  // Format time to 12-hour format with AM/PM
+  const formatTime = (dateStr: string) => {
+    if (!dateStr) return '';
+    // Replace space with T for parsing
+    const dateStrFixed = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+    const date = new Date(dateStrFixed);
+    // Check if date is valid
+    if (isNaN(date.getTime())) return '';
+    // Format as 12-hour time with AM/PM
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  };
+
   // Determine exam status based on date
   const getExamStatus = (exam: Exam) => {
     const now = new Date();
-    const examStart = new Date(exam.startTime);
-    const examEnd = new Date(exam.endTime);
+    const examStart = new Date(exam.startTime.replace(' ', 'T'));
+    // Calculate end time from start + duration to handle incorrect stored endTime
+    const examEnd = new Date(examStart.getTime() + exam.durationMinutes * 60000);
 
     if (exam.status === 'CLOSED') return 'TAKEN';
     if (now < examStart) return 'PENDING';
@@ -226,7 +256,7 @@ export default function PreviousExams({
                             <h4 className="text-slate-100 font-semibold">{exam.title}</h4>
                             <p className="text-slate-400 text-sm flex items-center gap-2">
                               <Calendar className="w-3 h-3" />
-                              {exam.examDate} | {exam.startTime.split(' ')[1]}
+                              {formatDateTime(exam.startTime)} | {formatTime(exam.startTime)}
                             </p>
                           </div>
                         </div>
@@ -283,6 +313,17 @@ export default function PreviousExams({
                           </button>
                         )}
                         
+                        {/* View Results Button - show for all exams with questions */}
+                        {examQuestionCounts[exam.id] > 0 && (
+                          <button
+                            onClick={() => setShowViewResults({ examId: exam.id, examTitle: exam.title })}
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/30 text-emerald-300 rounded-lg text-sm font-semibold transition-all duration-300 shadow-lg shadow-emerald-500/10"
+                          >
+                            <Trophy className="w-4 h-4" />
+                            View Results
+                          </button>
+                        )}
+                        
                         <button
                           onClick={() => handleTogglePublish(exam.id, exam.status)}
                           className={`flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium transition-all duration-300 ${
@@ -302,6 +343,13 @@ export default function PreviousExams({
                               Not Published
                             </>
                           )}
+                        </button>
+                        <button
+                          onClick={() => setEditExam(exam)}
+                          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-all duration-300"
+                        >
+                          <Edit className="w-4 h-4" />
+                          Edit
                         </button>
                       </div>
                     </div>
@@ -345,6 +393,17 @@ export default function PreviousExams({
           examId={showViewQuestions.examId}
           examTitle={showViewQuestions.examTitle}
           onClose={() => setShowViewQuestions(null)}
+        />
+      )}
+
+      {editExam && (
+        <EditExamModal
+          exam={editExam}
+          courseId={courseId}
+          onClose={() => setEditExam(null)}
+          onSave={(updatedExam) => {
+            setExams(exams.map(e => e.id === updatedExam.id ? updatedExam : e));
+          }}
         />
       )}
     </>

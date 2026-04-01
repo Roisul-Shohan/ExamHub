@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sidebar, CourseCard, CreateCourseForm, StudentsModal, ResultsModal, ExamModal, MaterialsModal, PreviousExams } from './components';
+import { Sidebar, CourseCard, CreateCourseForm, StudentsModal, ResultsModal, ExamModal, MaterialsModal, PreviousExams, TeacherPendingRequests } from './components';
 import { Loader2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -85,11 +85,13 @@ export default function TeacherDashboardPage() {
               {activeTab === 'my-courses' && 'My Courses'}
               {activeTab === 'create-course' && 'Create Course'}
               {activeTab === 'edit-profile' && 'Edit Profile'}
+              {activeTab === 'pending-requests' && 'Pending Requests'}
             </h1>
             <p className="text-slate-400">
               {activeTab === 'my-courses' && 'Manage your courses and students'}
               {activeTab === 'create-course' && 'Add a new course to your portfolio'}
               {activeTab === 'edit-profile' && 'Update your personal information'}
+              {activeTab === 'pending-requests' && 'Approve or reject student enrollment requests'}
             </p>
           </div>
           
@@ -152,6 +154,8 @@ export default function TeacherDashboardPage() {
         )}
 
         {activeTab === 'create-course' && <CreateCourseForm />}
+
+        {activeTab === 'pending-requests' && <TeacherPendingRequests />}
 
       </main>
 
