@@ -14,7 +14,8 @@ export async function GET() {
     const teacherId = parseInt(session.user.id as string);
 
     const [requests] = await db.query(
-      `SELECT ce.id, ce.courseId, ce.studentId, ce.status, ce.createdAt,
+      `SELECT ce.id, ce.courseId, ce.studentId,
+              ce.status, ce.createdAt,
               c.name AS courseName, c.code AS courseCode,
               u.name AS studentName, u.email AS studentEmail
        FROM course_enrollments ce

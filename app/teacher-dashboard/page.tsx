@@ -13,8 +13,38 @@ export default function TeacherDashboardPage() {
   const [activeTab, setActiveTab] = useState('my-courses');
   const [modal, setModal] = useState<{ type: string; courseId: number; courseName: string } | null>(null);
   const [examView, setExamView] = useState<'PREVIOUS' | 'NEW' | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const { data: session, status } = useSession();
   const router = useRouter();
+
+  const refreshCourses = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/courses/teacher");
+      const data = await res.json();
+      if (res.ok) {
+        setCourses(data);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshPendingRequests = async () => {
+    try {
+      const res = await fetch("/api/teacher/enrollmentRequests");
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) {
+        setPendingRequests(data);
+        setPendingCount(data.length);
+      }
+    } catch {
+      // silent
+    }
+  };
 
   useEffect(() => {
     if (status === "loading") return;
@@ -29,25 +59,9 @@ export default function TeacherDashboardPage() {
       return;
     }
 
-    const fetchCourses = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/courses/teacher");
-        const data = await res.json();
-
-        if (res.ok) {
-          setCourses(data);
-        } else {
-          console.error(data.message);
-        }
-      } catch (err) {
-        console.error("Failed to fetch courses");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCourses();
+    refreshCourses();
+    refreshPendingRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, status, router]);
 
   const totalStudents = courses.reduce((acc, c) => acc + (c.students || 0), 0);
@@ -74,7 +88,7 @@ export default function TeacherDashboardPage() {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} pendingCount={pendingCount} />
 
       {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto">
@@ -153,9 +167,21 @@ export default function TeacherDashboardPage() {
           )
         )}
 
-        {activeTab === 'create-course' && <CreateCourseForm />}
+        {activeTab === 'create-course' && <CreateCourseForm onCreated={refreshCourses} />}
 
-        {activeTab === 'pending-requests' && <TeacherPendingRequests />}
+        {activeTab === 'pending-requests' && (
+          <TeacherPendingRequests
+            requests={pendingRequests}
+            setRequests={(updater) => {
+              setPendingRequests((prev) => {
+                const next = typeof updater === 'function' ? updater(prev) : updater;
+                setPendingCount(next.length);
+                return next;
+              });
+            }}
+            onChanged={refreshPendingRequests}
+          />
+        )}
 
       </main>
 

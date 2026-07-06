@@ -12,34 +12,34 @@ export default function StudentDashboardPage() {
   const [totalEnrolled, setTotalEnrolled] = useState(0);
   const [totalExamsTaken, setTotalExamsTaken] = useState(0);
   const [avgScore, setAvgScore] = useState('0');
+  // Bumped when the student returns to the page or switches tabs, so child
+  // components refetch the latest state from the server (catches teacher approvals/rejections).
+  const [refreshKey, setRefreshKey] = useState(0);
   const { data: session } = useSession();
   const studentId = session?.user?.id;
 
   useEffect(() => {
+    if (!studentId) return;
+
     const fetchDashboardData = async () => {
-      if (!studentId) return;
-      
       try {
-        // Fetch pending count
         const pendingRes = await fetch('/api/student/pendingRequests');
         if (pendingRes.ok) {
           const pendingData = await pendingRes.json();
           setPendingCount(pendingData.length || 0);
         }
 
-        // Fetch enrolled courses count
         const coursesRes = await fetch('/api/student/myCourses');
         if (coursesRes.ok) {
           const coursesData = await coursesRes.json();
           setTotalEnrolled(Array.isArray(coursesData) ? coursesData.length : 0);
         }
 
-        // Fetch exam attempts for stats
         const attemptsRes = await fetch('/api/student/examAttempts');
         if (attemptsRes.ok) {
           const attemptsData: ExamAttempt[] = await attemptsRes.json();
           setTotalExamsTaken(Array.isArray(attemptsData) ? attemptsData.length : 0);
-          
+
           if (attemptsData.length > 0) {
             const totalPercent = attemptsData.reduce((sum, a) => {
               const totalMarks = a.totalMarks || 1;
@@ -56,22 +56,35 @@ export default function StudentDashboardPage() {
     };
 
     fetchDashboardData();
-  }, [studentId]);
+  }, [studentId, refreshKey]);
+
+  // Refresh on tab focus so the student sees updated pending/enrolled counts
+  // and (after teacher action) newly available courses.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        setRefreshKey((k) => k + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setRefreshKey((k) => k + 1);
+  };
 
   const updatePendingCount = (change: number) => {
     setPendingCount(prev => Math.max(0, prev + change));
-    // Also update enrolled count when request is approved
-    if (change > 0) {
-      setTotalEnrolled(prev => prev);
-    }
   };
 
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <StudentSidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+      <StudentSidebar
+        activeTab={activeTab}
+        setActiveTab={handleTabChange}
         pendingCount={pendingCount}
       />
 
@@ -121,10 +134,21 @@ export default function StudentDashboardPage() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'my-courses' && <MyCourses />}
-        {activeTab === 'available-courses' && <AvailableCourses studentId={studentId} onRequestSent={updatePendingCount} />}
-        {activeTab === 'pending-requests' && <PendingRequests onRequestCancelled={updatePendingCount} />}
-        {activeTab === 'exams' && <StudentExams />}
+        {activeTab === 'my-courses' && <MyCourses key={`my-${refreshKey}`} />}
+        {activeTab === 'available-courses' && (
+          <AvailableCourses
+            key={`available-${refreshKey}`}
+            studentId={studentId}
+            onRequestSent={updatePendingCount}
+          />
+        )}
+        {activeTab === 'pending-requests' && (
+          <PendingRequests
+            key={`pending-${refreshKey}`}
+            onRequestCancelled={updatePendingCount}
+          />
+        )}
+        {activeTab === 'exams' && <StudentExams key={`exams-${refreshKey}`} />}
       </main>
     </div>
   );

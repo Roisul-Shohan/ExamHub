@@ -28,9 +28,8 @@ export async function GET(
 
     const studentId = session.user.id;
 
-    // Get the exam attempt
     const [attemptResult] = await db.execute(
-      `SELECT a.*, e.title as examTitle, c.name as courseName, c.code as courseCode
+      `SELECT a.*, e.title AS examTitle, c.name AS courseName, c.code AS courseCode
        FROM exam_attempts a
        JOIN exams e ON a.examId = e.id
        JOIN courses c ON e.courseId = c.id
@@ -46,7 +45,6 @@ export async function GET(
       );
     }
 
-    // Get student answers with question details
     const [answersResult] = await db.execute(
       `SELECT 
         sa.id,

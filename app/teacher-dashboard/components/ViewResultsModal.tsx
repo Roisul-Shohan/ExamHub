@@ -220,9 +220,9 @@ export default function ViewResultsModal({ examId, examTitle, onClose }: ViewRes
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-600/20 flex items-center justify-center border border-indigo-500/30">
-                  <span className="text-indigo-300 font-bold text-lg">
-                    {result.name.charAt(0)}
-                  </span>
+                   <span className="text-indigo-300 font-bold text-lg">
+                     {(result.name || "?").charAt(0)}
+                   </span>
                 </div>
                 <div>
                   <h4 className="text-slate-100 font-semibold">{result.name}</h4>

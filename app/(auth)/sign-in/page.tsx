@@ -1,9 +1,9 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { signIn } from "next-auth/react"
+import { signIn, useSession } from "next-auth/react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,37 +15,54 @@ export default function SignIn() {
   const [role, setRole] = useState<"STUDENT" | "TEACHER">("STUDENT")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [attemptedSignIn, setAttemptedSignIn] = useState(false)
+  const { data: session, status } = useSession()
   const router = useRouter()
+
+  useEffect(() => {
+    if (attemptedSignIn && status === "authenticated") {
+      if (session?.user?.role === "TEACHER") {
+        router.push("/teacher-dashboard")
+      } else if (session?.user?.role === "STUDENT") {
+        router.push("/student-dashboard")
+      } else {
+        router.push("/")
+      }
+    }
+  }, [attemptedSignIn, status, session, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
-
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    })
-
-    setIsLoading(false)
-
-    if (result?.error) {
-      setError("Invalid email or password")
-      return
-    }
+    setAttemptedSignIn(true)
 
     try {
-      const response = await fetch("/api/auth/session")
-      const session = await response.json()
-      
-      if (session?.user?.role === "TEACHER") {
-        router.push("/teacher-dashboard")
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        setError("Invalid email or password")
+        setIsLoading(false)
+        return
+      }
+
+      const sessionRes = await fetch("/api/auth/session")
+      const sessionJson = await sessionRes.json()
+
+      if (sessionJson.user?.role === "TEACHER") {
+        window.location.href = "/teacher-dashboard"
+      } else if (sessionJson.user?.role === "STUDENT") {
+        window.location.href = "/student-dashboard"
       } else {
-        router.push("/")
+        window.location.href = "/"
       }
     } catch {
-     router.push("/");
+      setError("Something went wrong")
+      setIsLoading(false)
     }
   }
 

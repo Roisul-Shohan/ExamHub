@@ -114,9 +114,9 @@ export default function StudentsModal({ courseId,courseName, onClose }: Students
                 key={student.id}
                 className="flex items-center gap-4 p-4 bg-slate-800/50 rounded-xl hover:bg-slate-800 transition-all duration-300 group cursor-pointer border border-transparent hover:border-indigo-500/20"
               >
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold shadow-lg">
-                  {student.name.charAt(0).toUpperCase()}
-                </div>
+                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold shadow-lg">
+                   {(student.name || "U").charAt(0).toUpperCase()}
+                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="text-slate-200 font-semibold">{student.name}</h4>
                   <p className="text-slate-500 text-sm">{student.email}</p>

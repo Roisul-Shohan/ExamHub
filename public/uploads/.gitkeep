@@ -1,0 +1,2 @@
+# Local uploads live here during development. On Vercel, course materials are
+# stored in Cloudinary instead — see app/api/teacher/materials/route.ts.

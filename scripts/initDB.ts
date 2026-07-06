@@ -1,3 +1,5 @@
+import { config } from "dotenv";
+config({ path: ".env.local" });
 import { createAllTables } from "@/lib/setup";
 
 async function main() {

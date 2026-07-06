@@ -6,6 +6,7 @@ import { BookOpen, PlusCircle, User, GraduationCap, ClipboardList } from 'lucide
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  pendingCount?: number;
 }
 
 const menuItems = [
@@ -14,7 +15,7 @@ const menuItems = [
   { id: 'pending-requests', icon: ClipboardList, label: 'Pending Requests' },
 ];
 
-export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
+export default function Sidebar({ activeTab, setActiveTab, pendingCount }: SidebarProps) {
   return (
     <aside className="w-72 bg-white/2 backdrop-blur-xl border-r border-white/5  flex flex-col  h-[calc(100vh-64px)] sticky top-16">
       {/* Logo */}
@@ -45,6 +46,11 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             )}
             <item.icon className={`w-5 h-5 relative z-10 transition-transform duration-300 ${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110'}`} />
             <span className="font-medium relative z-10">{item.label}</span>
+            {item.id === 'pending-requests' && pendingCount ? (
+              <span className="ml-auto relative z-10 bg-amber-500/20 text-amber-300 text-xs font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                {pendingCount}
+              </span>
+            ) : null}
             
             {activeTab === item.id && (
               <div className="absolute right-3 w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)]" />

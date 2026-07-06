@@ -28,9 +28,9 @@ export async function GET(
 
     const studentId = session.user.id;
 
-    // Verify student is enrolled in this exam's course
     const [enrollment] = await db.execute(
-      `SELECT e.id FROM course_enrollments e
+      `SELECT e.id 
+       FROM course_enrollments e
        JOIN exams ex ON e.courseId = ex.courseId
        WHERE e.studentId = ? AND ex.id = ? AND e.status = 'APPROVED'`,
       [studentId, examId]
@@ -43,9 +43,8 @@ export async function GET(
       );
     }
 
-    // Get questions for the exam
     const [questions] = await db.execute(
-      `SELECT id, examId, questionText, optionA, optionB, optionC, optionD, correctOption, marks
+      `SELECT id AS id, examId AS examId, questionText AS questionText, optionA AS optionA, optionB AS optionB, optionC AS optionC, optionD AS optionD, correctOption AS correctOption, marks AS marks
        FROM questions
        WHERE examId = ?
        ORDER BY id`,

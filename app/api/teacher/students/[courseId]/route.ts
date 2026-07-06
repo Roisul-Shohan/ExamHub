@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { auth } from "@/auth";
+import { db } from "@/lib/db";
 
 export async function GET(
   req: NextRequest,
-    { params }: { params: Promise<{ courseId: string }> }
+  { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
     const session = await auth();
@@ -14,7 +14,7 @@ export async function GET(
     }
 
    const resolvedParams = await params;
-  const courseId = parseInt(resolvedParams.courseId);
+   const courseId = parseInt(resolvedParams.courseId);
 
     if (isNaN(courseId)) {
       return NextResponse.json({ error: "Invalid course ID" }, { status: 400 });
@@ -33,7 +33,7 @@ export async function GET(
     }
 
     const [students] = await db.execute(
-      `SELECT u.id, u.name, u.email,e.status
+      `SELECT u.id AS id, u.name AS name, u.email AS email, e.status AS status
        FROM course_enrollments e
        JOIN users u ON e.studentId = u.id
        WHERE e.courseId = ? AND u.role = 'STUDENT'`,
@@ -76,7 +76,6 @@ export async function PATCH(
       return NextResponse.json({ error: "Student ID is required" }, { status: 400 });
     }
 
-    // Verify course belongs to teacher
     const [course] = await db.execute(
       "SELECT id FROM courses WHERE id = ? AND teacherId = ?",
       [courseId, session.user.id]

@@ -33,25 +33,28 @@ export async function GET(
       );
     }
 
-    // Get all courses where the student is NOT enrolled (excluding pending requests)
-    // Only returns courses where there is NO enrollment record at all
     const [courses] = await db.execute(
-      `SELECT 
-        c.id, 
-        c.name, 
+      `SELECT
+        c.id,
+        c.name,
         c.description,
-        c.code, 
-        c.teacherId, 
-        c.createdat as createdAt, 
-        c.updatedat as updatedAt,
-        u.name as teacherName,
-        (SELECT COUNT(*) FROM course_enrollments WHERE courseId = c.id AND status = 'APPROVED') as students
+        c.code,
+        c.teacherId,
+        c.createdAt,
+        c.updatedAt,
+        u.name AS teacherName,
+        (SELECT COUNT(*) FROM course_enrollments WHERE courseId = c.id AND status = 'APPROVED') AS students,
+        (SELECT status FROM course_enrollments
+         WHERE courseId = c.id AND studentId = ?
+         ORDER BY createdAt DESC LIMIT 1) AS enrollmentStatus
        FROM courses c
-       LEFT JOIN course_enrollments e ON c.id = e.courseId AND e.studentId = ?
        JOIN users u ON c.teacherId = u.id
-       WHERE e.id IS NULL
-       ORDER BY c.createdat DESC`,
-      [studentId]
+       WHERE NOT EXISTS (
+         SELECT 1 FROM course_enrollments
+         WHERE courseId = c.id AND studentId = ? AND status IN ('PENDING', 'APPROVED')
+       )
+       ORDER BY c.createdAt DESC`,
+      [studentId, studentId]
     );
 
     return NextResponse.json(courses);

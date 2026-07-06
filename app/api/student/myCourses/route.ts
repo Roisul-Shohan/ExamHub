@@ -16,17 +16,17 @@ export async function GET(req: NextRequest) {
     const studentId = session.user.id;
 
     const [courses] = await db.execute(
-      `SELECT 
-        c.id, 
-        c.name, 
+      `SELECT
+        c.id,
+        c.name,
         c.description,
-        c.code, 
-        c.teacherId, 
-        c.createdat as createdAt, 
-        c.updatedat as updatedAt,
-        u.name as teacherName,
-        (SELECT COUNT(*) FROM course_enrollments WHERE courseId = c.id AND status = 'APPROVED') as students,
-        e.status as enrollmentStatus
+        c.code,
+        c.teacherId,
+        c.createdAt,
+        c.updatedAt,
+        u.name AS teacherName,
+        (SELECT COUNT(*) FROM course_enrollments WHERE courseId = c.id AND status = 'APPROVED') AS students,
+        e.status AS enrollmentStatus
        FROM courses c
        JOIN course_enrollments e ON c.id = e.courseId
        JOIN users u ON c.teacherId = u.id

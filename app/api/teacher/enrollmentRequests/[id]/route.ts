@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
-// PATCH /api/teacher/enrollmentRequests/[id] — approve or reject a request
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -30,7 +29,6 @@ export async function PATCH(
       );
     }
 
-    // Verify the enrollment request belongs to one of this teacher's courses
     const [enrollment] = await db.execute(
       `SELECT ce.id FROM course_enrollments ce
        JOIN courses c ON ce.courseId = c.id

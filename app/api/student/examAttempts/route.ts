@@ -15,9 +15,8 @@ export async function GET(req: NextRequest) {
 
     const studentId = session.user.id;
 
-    // Get all exam attempts for this student
     const [attempts] = await db.execute(
-      `SELECT 
+      `SELECT
         a.id,
         a.examId,
         a.studentId,

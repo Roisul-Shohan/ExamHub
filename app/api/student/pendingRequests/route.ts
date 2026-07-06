@@ -15,18 +15,17 @@ export async function GET(req: NextRequest) {
 
     const studentId = session.user.id;
 
-    // Get all pending enrollment requests for this student
     const [requests] = await db.execute(
-      `SELECT 
+      `SELECT
         e.id,
         e.courseId,
         e.studentId,
         e.status,
         e.createdAt,
-        c.name as courseName,
-        c.code as courseCode,
-        c.description as courseDescription,
-        u.name as teacherName
+        c.name AS courseName,
+        c.code AS courseCode,
+        c.description AS courseDescription,
+        u.name AS teacherName
        FROM course_enrollments e
        JOIN courses c ON e.courseId = c.id
        JOIN users u ON c.teacherId = u.id

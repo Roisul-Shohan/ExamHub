@@ -15,13 +15,12 @@ export async function GET(req: NextRequest) {
 
     const studentId = session.user.id;
 
-    // Get exams for courses where the student is enrolled (only PUBLISHED exams)
     const [exams] = await db.execute(
-      `SELECT 
+      `SELECT
         e.id,
         e.courseId,
-        c.name as courseName,
-        c.code as courseCode,
+        c.name AS courseName,
+        c.code AS courseCode,
         e.title,
         e.description,
         e.examDate,

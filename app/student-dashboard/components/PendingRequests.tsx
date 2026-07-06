@@ -126,9 +126,9 @@ export default function PendingRequests({ onRequestCancelled }: PendingRequestsP
 
               {/* Teacher badge */}
               <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-white/[0.03] rounded-lg border border-white/[0.05]">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white text-xs font-bold">
-                  {request.teacherName.charAt(0)}
-                </div>
+                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white text-xs font-bold">
+                   {(request.teacherName || "?").charAt(0)}
+                 </div>
                 <span className="text-slate-300 text-sm font-medium">{request.teacherName}</span>
               </div>
 

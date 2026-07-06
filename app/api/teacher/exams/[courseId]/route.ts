@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cour
 
   
     const [exams] = await db.execute(
-      "SELECT id, title, description, totalMarks, durationMinutes, startTime, endTime, negativeMark, status, examDate FROM exams WHERE courseId = ? ORDER BY startTime DESC",
+      "SELECT id AS id, title AS title, description AS description, totalMarks AS totalMarks, durationMinutes AS durationMinutes, startTime AS startTime, endTime AS endTime, negativeMark AS negativeMark, status AS status, examDate AS examDate FROM exams WHERE courseId = ? ORDER BY startTime DESC",
       [courseId]
     );
 

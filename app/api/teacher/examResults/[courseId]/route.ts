@@ -16,7 +16,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cour
       return NextResponse.json({ error: "Invalid course ID" }, { status: 400 });
     }
 
-    // Verify course belongs to teacher
     const [course] = await db.execute(
       "SELECT * FROM courses WHERE id = ? AND teacherId = ?",
       [courseId, session.user.id]
@@ -26,26 +25,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cour
       return NextResponse.json({ error: "Course not found or not owned by you" }, { status: 404 });
     }
 
-    // Get all exams for this course
     const [exams] = await db.execute(
-      "SELECT id, title, totalMarks FROM exams WHERE courseId = ?",
+      "SELECT id AS id, title AS title, totalMarks AS totalMarks FROM exams WHERE courseId = ?",
       [courseId]
     );
 
-    // Get all exam attempts for students enrolled in this course
     const [attempts] = await db.execute(
       `SELECT 
-        ea.id as attemptId,
+        ea.id AS attemptId,
         ea.examId,
         ea.studentId,
         ea.score,
-        ea.totalMarks as attemptTotalMarks,
+        ea.totalMarks AS attemptTotalMarks,
         ea.status,
         ea.startTime,
         ea.endTime,
-        u.name as studentName,
-        e.title as examTitle,
-        e.totalMarks as examTotalMarks
+        u.name AS studentName,
+        e.title AS examTitle,
+        e.totalMarks AS examTotalMarks
       FROM exam_attempts ea
       JOIN users u ON ea.studentId = u.id
       JOIN exams e ON ea.examId = e.id
@@ -54,11 +51,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cour
       [courseId]
     );
 
-    // Get all enrolled students for this course
     const [enrollments] = await db.execute(
       `SELECT 
         ce.studentId,
-        u.name as studentName
+        u.name AS studentName
       FROM course_enrollments ce
       JOIN users u ON ce.studentId = u.id
       WHERE ce.courseId = ? AND ce.status = 'APPROVED'`,
@@ -66,9 +62,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cour
     );
 
     return NextResponse.json({
-      exams: exams,
-      attempts: attempts,
-      enrollments: enrollments
+      exams,
+      attempts,
+      enrollments
     });
   } catch (error) {
     console.error("Fetch exam results error:", error);

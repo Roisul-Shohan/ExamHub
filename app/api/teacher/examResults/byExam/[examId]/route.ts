@@ -16,9 +16,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ exam
       return NextResponse.json({ error: "Invalid exam ID" }, { status: 400 });
     }
 
-    // Verify exam belongs to a course owned by this teacher
     const [examResult] = await db.execute(
-      `SELECT e.*, c.name as courseName, c.teacherId 
+      `SELECT e.*, c.name AS courseName, c.teacherId 
        FROM exams e 
        JOIN courses c ON e.courseId = c.id 
        WHERE e.id = ? AND c.teacherId = ?`,
@@ -31,19 +30,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ exam
 
     const exam = (examResult as any[])[0];
 
-    // Get all attempts for this exam with student details
     const [attempts] = await db.execute(
       `SELECT 
-        ea.id as attemptId,
+        ea.id AS attemptId,
         ea.examId,
         ea.studentId,
         ea.score,
-        ea.totalMarks as attemptTotalMarks,
+        ea.totalMarks AS attemptTotalMarks,
         ea.status,
         ea.startTime,
         ea.endTime,
-        u.name as studentName,
-        u.email as studentEmail
+        u.name AS studentName,
+        u.email AS studentEmail
       FROM exam_attempts ea
       JOIN users u ON ea.studentId = u.id
       WHERE ea.examId = ?
@@ -51,22 +49,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ exam
       [examId]
     );
 
-    // Get all questions for this exam to calculate correct/wrong/unanswered
     const [questions] = await db.execute(
-      "SELECT id, correctOption, marks FROM questions WHERE examId = ?",
+      "SELECT id AS id, correctOption AS correctOption, marks AS marks FROM questions WHERE examId = ?",
       [examId]
     );
 
-    // Get student answers for all attempts
     const [studentAnswers] = await db.execute(
-      `SELECT sa.attemptId, sa.questionId, sa.selectedOption, sa.isCorrect, q.correctOption
+      `SELECT sa.attemptId AS attemptId, sa.questionId AS questionId, sa.selectedOption AS selectedOption, sa.isCorrect AS isCorrect, q.correctOption AS correctOption
        FROM student_answers sa
        JOIN questions q ON sa.questionId = q.id
-       WHERE q.examId = ?`,
+       WHERE q.examId = ?
+      `,
       [examId]
     );
 
-    // Organize answers by attemptId
     const answersByAttempt: Record<number, any[]> = {};
     for (const answer of studentAnswers as any[]) {
       if (!answersByAttempt[answer.attemptId]) {
@@ -75,7 +71,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ exam
       answersByAttempt[answer.attemptId].push(answer);
     }
 
-    // Calculate stats for each attempt
     const results = (attempts as any[]).map((attempt, index) => {
       const attemptAnswers = answersByAttempt[attempt.attemptId] || [];
       const totalQuestions = (questions as any[]).length;

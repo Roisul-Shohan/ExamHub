@@ -105,18 +105,18 @@ export default function AvailableCourses({ studentId, onRequestSent }: Available
             </div>
 
            
-            <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-white/3 rounded-lg border border-white/5">
-              <div className="w-7 h-7 rounded-full bg-linear-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
-                {course.teacherName.charAt(0)}
-              </div>
-              <span className="text-slate-300 text-sm font-medium">{course.teacherName}</span>
-            </div>
+               <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-white/3 rounded-lg border border-white/5">
+                 <div className="w-7 h-7 rounded-full bg-linear-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+                   {(course.teacherName || "?").charAt(0)}
+                 </div>
+                 <span className="text-slate-300 text-sm font-medium">{course.teacherName}</span>
+               </div>
 
-            <p className="text-slate-400 text-sm leading-relaxed mb-5">
-              {course.description.length > 100
-                ? course.description.slice(0, 100) + '...'
-                : course.description}
-            </p>
+             <p className="text-slate-400 text-sm leading-relaxed mb-5">
+               {(course.description || "").length > 100
+                 ? course.description.slice(0, 100) + '...'
+                 : course.description}
+             </p>
 
            
             {course.enrollmentStatus === 'PENDING' ? (

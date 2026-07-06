@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     }
 
     const [questions] = await db.execute(
-      `SELECT id, examId, questionText, optionA, optionB, optionC, optionD, correctOption, marks
+      `SELECT id AS id, examId AS examId, questionText AS questionText, optionA AS optionA, optionB AS optionB, optionC AS optionC, optionD AS optionD, correctOption AS correctOption, marks AS marks
        FROM questions WHERE examId = ? ORDER BY id ASC`,
       [examId]
     );

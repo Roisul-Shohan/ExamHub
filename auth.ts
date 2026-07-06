@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  secret: process.env.AUTH_SECRET,
   providers: [
     Credentials({
       credentials: {
@@ -64,12 +65,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
     async redirect({ url, baseUrl }) {
-      // Redirect teachers to teacher dashboard
       if (url.includes('/teacher')) {
         return url;
       }
-      // If user has role 'teacher', redirect to teacher dashboard
-      return baseUrl + '/teacher-dashboard';
+      return baseUrl;
     },
   },
 });
